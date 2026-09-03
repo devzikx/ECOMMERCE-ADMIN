@@ -6,7 +6,10 @@ import { AlertCircle, LogIn } from 'lucide-react';
 import { loginSchema, LoginFormData } from '../schema';
 import { LoginUseCase } from '@/core/application/use-cases/LoginUseCase';
 import { SupabaseAuthRepository } from '@/infrastructure/repositories/SupabaseAuthRepository';
-import { ZodError } from 'zod';
+import { ZodError, z } from 'zod';
+
+const emailSchema = z.string().email('올바른 이메일 형식을 입력해주세요');
+const passwordSchema = z.string().min(1, '비밀번호를 입력해주세요').min(6, '비밀번호는 최소 6자 이상이어야 합니다');
 
 export default function LoginForm() {
   const router = useRouter();
@@ -21,9 +24,9 @@ export default function LoginForm() {
   const validateField = (name: string, value: string) => {
     try {
       if (name === 'email') {
-        loginSchema.shape.email.parse(value);
+        emailSchema.parse(value);
       } else if (name === 'password') {
-        loginSchema.shape.password.parse(value);
+        passwordSchema.parse(value);
       }
       setErrors((prev) => {
         const newErrors = { ...prev };
@@ -32,10 +35,13 @@ export default function LoginForm() {
       });
     } catch (err) {
       if (err instanceof ZodError) {
-        setErrors((prev) => ({
-          ...prev,
-          [name]: err.errors[0].message,
-        }));
+        const issues = err.issues || [];
+        if (issues.length > 0) {
+          setErrors((prev) => ({
+            ...prev,
+            [name]: issues[0].message,
+          }));
+        }
       }
     }
   };
@@ -78,10 +84,11 @@ export default function LoginForm() {
     } catch (err) {
       if (err instanceof ZodError) {
         const fieldErrors: Record<string, string> = {};
-        err.errors.forEach((error) => {
-          const fieldName = error.path[0];
+        const issues = err.issues || [];
+        issues.forEach((issue) => {
+          const fieldName = issue.path[0];
           if (fieldName) {
-            fieldErrors[fieldName] = error.message;
+            fieldErrors[String(fieldName)] = issue.message;
           }
         });
         setErrors(fieldErrors);

@@ -1,16 +1,21 @@
 import { AuthCredentials, LoginResponse, User } from '@/core/domain/entities/user';
 import { IAuthRepository } from '@/core/domain/repositories/IAuthRepository';
-import { createBrowserClient } from '@supabase/ssr';
+import { createClient } from '@/lib/supabase/client';
 
 export class SupabaseAuthRepository implements IAuthRepository {
-  private supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  private supabaseClient: ReturnType<typeof createClient> | null = null;
+
+  private getClient() {
+    if (!this.supabaseClient) {
+      this.supabaseClient = createClient();
+    }
+    return this.supabaseClient;
+  }
 
   async login(credentials: AuthCredentials): Promise<LoginResponse> {
+    const supabase = this.getClient();
     // Supabase Auth로 로그인
-    const { data, error } = await this.supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: credentials.email,
       password: credentials.password,
     });
@@ -20,7 +25,7 @@ export class SupabaseAuthRepository implements IAuthRepository {
     }
 
     // users 테이블에서 사용자 정보 조회
-    const { data: userData, error: userError } = await this.supabase
+    const { data: userData, error: userError } = await supabase
       .from('users')
       .select('id, email, role')
       .eq('id', data.user.id)
@@ -44,17 +49,19 @@ export class SupabaseAuthRepository implements IAuthRepository {
   }
 
   async logout(): Promise<void> {
-    await this.supabase.auth.signOut();
+    const supabase = this.getClient();
+    await supabase.auth.signOut();
   }
 
   async getCurrentUser(): Promise<User | null> {
-    const { data } = await this.supabase.auth.getUser();
+    const supabase = this.getClient();
+    const { data } = await supabase.auth.getUser();
 
     if (!data.user) {
       return null;
     }
 
-    const { data: userData } = await this.supabase
+    const { data: userData } = await supabase
       .from('users')
       .select('id, email, role')
       .eq('id', data.user.id)
