@@ -2,57 +2,101 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm } from '@tanstack/react-form';
 import { AlertCircle, LogIn } from 'lucide-react';
 import { loginSchema, LoginFormData } from '../schema';
 import { LoginUseCase } from '@/core/application/use-cases/LoginUseCase';
 import { SupabaseAuthRepository } from '@/infrastructure/repositories/SupabaseAuthRepository';
+import { ZodError } from 'zod';
 
 export default function LoginForm() {
   const router = useRouter();
+  const [formData, setFormData] = useState<LoginFormData>({
+    email: '',
+    password: '',
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const form = useForm<LoginFormData>({
-    defaultValues: {
-      email: '',
-      password: '',
-    },
-    onSubmit: async (values) => {
-      setError(null);
-      setIsLoading(true);
+  const validateField = (name: string, value: string) => {
+    try {
+      if (name === 'email') {
+        loginSchema.shape.email.parse(value);
+      } else if (name === 'password') {
+        loginSchema.shape.password.parse(value);
+      }
+      setErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    } catch (err) {
+      if (err instanceof ZodError) {
+        setErrors((prev) => ({
+          ...prev,
+          [name]: err.errors[0].message,
+        }));
+      }
+    }
+  };
 
-      try {
-        const repository = new SupabaseAuthRepository();
-        const useCase = new LoginUseCase(repository);
-        const result = await useCase.execute({
-          email: values.email,
-          password: values.password,
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    validateField(name, value);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setErrors({});
+    setIsLoading(true);
+
+    try {
+      // 전체 폼 검증
+      const validated = loginSchema.parse(formData);
+
+      const repository = new SupabaseAuthRepository();
+      const useCase = new LoginUseCase(repository);
+      const result = await useCase.execute({
+        email: validated.email,
+        password: validated.password,
+      });
+
+      // 로그인 토큰을 쿠키에 저장
+      document.cookie = `admin_token=${result.token}; path=/; max-age=${7 * 24 * 60 * 60}`;
+      document.cookie = `admin_user_id=${result.user.id}; path=/; max-age=${7 * 24 * 60 * 60}`;
+
+      router.push('/admin');
+    } catch (err) {
+      if (err instanceof ZodError) {
+        const fieldErrors: Record<string, string> = {};
+        err.errors.forEach((error) => {
+          const fieldName = error.path[0];
+          if (fieldName) {
+            fieldErrors[fieldName] = error.message;
+          }
         });
-
-        // 로그인 토큰을 쿠키에 저장
-        document.cookie = `admin_token=${result.token}; path=/; max-age=${7 * 24 * 60 * 60}`;
-        document.cookie = `admin_user_id=${result.user.id}; path=/; max-age=${7 * 24 * 60 * 60}`;
-
-        router.push('/admin');
-      } catch (err) {
+        setErrors(fieldErrors);
+      } else {
         setError(
           err instanceof Error ? err.message : '로그인에 실패했습니다'
         );
-      } finally {
-        setIsLoading(false);
       }
-    },
-  });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        form.handleSubmit();
-      }}
-      className="space-y-6"
-    >
+    <form onSubmit={handleSubmit} className="space-y-6">
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
           <AlertCircle size={20} className="text-red-600" />
@@ -61,70 +105,58 @@ export default function LoginForm() {
       )}
 
       {/* 이메일 필드 */}
-      <form.Field
-        name="email"
-        validators={{
-          onBlur: loginSchema.shape.email,
-        }}
-      >
-        {(field) => (
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
-              이메일
-            </label>
-            <input
-              type="email"
-              value={field.state.value}
-              onChange={(e) => field.handleChange(e.target.value)}
-              onBlur={field.handleBlur}
-              disabled={isLoading}
-              className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent disabled:bg-slate-50 disabled:text-slate-500 transition-colors"
-              placeholder="이메일을 입력하세요"
-            />
-            {field.state.meta.errors && field.state.meta.errors.length > 0 && (
-              <div className="flex items-center gap-2 mt-2">
-                <AlertCircle size={16} className="text-red-600" />
-                <p className="text-sm text-red-600">
-                  {field.state.meta.errors[0]}
-                </p>
-              </div>
-            )}
+      <div>
+        <label className="block text-sm font-medium text-slate-700 mb-2">
+          이메일
+        </label>
+        <input
+          type="email"
+          name="email"
+          value={formData.email}
+          onChange={handleChange}
+          onBlur={handleBlur}
+          disabled={isLoading}
+          className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent disabled:bg-slate-50 disabled:text-slate-500 transition-colors ${
+            errors.email
+              ? 'border-red-300 focus:ring-red-600'
+              : 'border-slate-300 focus:ring-blue-600'
+          }`}
+          placeholder="이메일을 입력하세요"
+        />
+        {errors.email && (
+          <div className="flex items-center gap-2 mt-2">
+            <AlertCircle size={16} className="text-red-600" />
+            <p className="text-sm text-red-600">{errors.email}</p>
           </div>
         )}
-      </form.Field>
+      </div>
 
       {/* 비밀번호 필드 */}
-      <form.Field
-        name="password"
-        validators={{
-          onBlur: loginSchema.shape.password,
-        }}
-      >
-        {(field) => (
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
-              비밀번호
-            </label>
-            <input
-              type="password"
-              value={field.state.value}
-              onChange={(e) => field.handleChange(e.target.value)}
-              onBlur={field.handleBlur}
-              disabled={isLoading}
-              className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent disabled:bg-slate-50 disabled:text-slate-500 transition-colors"
-              placeholder="비밀번호를 입력하세요"
-            />
-            {field.state.meta.errors && field.state.meta.errors.length > 0 && (
-              <div className="flex items-center gap-2 mt-2">
-                <AlertCircle size={16} className="text-red-600" />
-                <p className="text-sm text-red-600">
-                  {field.state.meta.errors[0]}
-                </p>
-              </div>
-            )}
+      <div>
+        <label className="block text-sm font-medium text-slate-700 mb-2">
+          비밀번호
+        </label>
+        <input
+          type="password"
+          name="password"
+          value={formData.password}
+          onChange={handleChange}
+          onBlur={handleBlur}
+          disabled={isLoading}
+          className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent disabled:bg-slate-50 disabled:text-slate-500 transition-colors ${
+            errors.password
+              ? 'border-red-300 focus:ring-red-600'
+              : 'border-slate-300 focus:ring-blue-600'
+          }`}
+          placeholder="비밀번호를 입력하세요"
+        />
+        {errors.password && (
+          <div className="flex items-center gap-2 mt-2">
+            <AlertCircle size={16} className="text-red-600" />
+            <p className="text-sm text-red-600">{errors.password}</p>
           </div>
         )}
-      </form.Field>
+      </div>
 
       {/* 로그인 버튼 */}
       <button
