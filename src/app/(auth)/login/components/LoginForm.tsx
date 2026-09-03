@@ -6,7 +6,7 @@ import { useForm } from '@tanstack/react-form';
 import { AlertCircle, LogIn } from 'lucide-react';
 import { loginSchema, LoginFormData } from '../schema';
 import { LoginUseCase } from '@/core/application/use-cases/LoginUseCase';
-import { MockAuthRepository } from '@/infrastructure/repositories/MockAuthRepository';
+import { SupabaseAuthRepository } from '@/infrastructure/repositories/SupabaseAuthRepository';
 
 export default function LoginForm() {
   const router = useRouter();
@@ -23,7 +23,7 @@ export default function LoginForm() {
       setIsLoading(true);
 
       try {
-        const repository = new MockAuthRepository();
+        const repository = new SupabaseAuthRepository();
         const useCase = new LoginUseCase(repository);
         const result = await useCase.execute({
           email: values.email,
@@ -45,19 +45,6 @@ export default function LoginForm() {
     },
   });
 
-  const emailValue = form.getFieldValue('email');
-  const passwordValue = form.getFieldValue('password');
-
-  const emailError =
-    !emailValue?.trim() && form.getFieldMeta('email')?.isTouched
-      ? '이메일을 입력해주세요'
-      : undefined;
-
-  const passwordError =
-    !passwordValue?.trim() && form.getFieldMeta('password')?.isTouched
-      ? '비밀번호를 입력해주세요'
-      : undefined;
-
   return (
     <form
       onSubmit={(e) => {
@@ -74,7 +61,12 @@ export default function LoginForm() {
       )}
 
       {/* 이메일 필드 */}
-      <form.Field name="email">
+      <form.Field
+        name="email"
+        validators={{
+          onBlur: loginSchema.shape.email,
+        }}
+      >
         {(field) => (
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -87,12 +79,14 @@ export default function LoginForm() {
               onBlur={field.handleBlur}
               disabled={isLoading}
               className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent disabled:bg-slate-50 disabled:text-slate-500 transition-colors"
-              placeholder="admin@example.com"
+              placeholder="이메일을 입력하세요"
             />
-            {emailError && (
+            {field.state.meta.errors && field.state.meta.errors.length > 0 && (
               <div className="flex items-center gap-2 mt-2">
                 <AlertCircle size={16} className="text-red-600" />
-                <p className="text-sm text-red-600">{emailError}</p>
+                <p className="text-sm text-red-600">
+                  {field.state.meta.errors[0]}
+                </p>
               </div>
             )}
           </div>
@@ -100,7 +94,12 @@ export default function LoginForm() {
       </form.Field>
 
       {/* 비밀번호 필드 */}
-      <form.Field name="password">
+      <form.Field
+        name="password"
+        validators={{
+          onBlur: loginSchema.shape.password,
+        }}
+      >
         {(field) => (
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -113,28 +112,19 @@ export default function LoginForm() {
               onBlur={field.handleBlur}
               disabled={isLoading}
               className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent disabled:bg-slate-50 disabled:text-slate-500 transition-colors"
-              placeholder="••••••••"
+              placeholder="비밀번호를 입력하세요"
             />
-            {passwordError && (
+            {field.state.meta.errors && field.state.meta.errors.length > 0 && (
               <div className="flex items-center gap-2 mt-2">
                 <AlertCircle size={16} className="text-red-600" />
-                <p className="text-sm text-red-600">{passwordError}</p>
+                <p className="text-sm text-red-600">
+                  {field.state.meta.errors[0]}
+                </p>
               </div>
             )}
           </div>
         )}
       </form.Field>
-
-      {/* 테스트 자격증명 안내 */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <p className="text-sm text-blue-800">
-          <strong>테스트 계정:</strong>
-          <br />
-          관리자: admin@example.com / password123
-          <br />
-          일반 사용자: user@example.com / password123
-        </p>
-      </div>
 
       {/* 로그인 버튼 */}
       <button
