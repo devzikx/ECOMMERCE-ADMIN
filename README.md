@@ -16,6 +16,7 @@
 - [기술 스택](#기술-스택)
 - [프로젝트 구조](#프로젝트-구조)
 - [시작하기](#시작하기)
+- [Mock 데이터 (로그인 불필요)](#mock-데이터-로그인-불필요)
 - [개발 가이드](#개발-가이드)
 - [테스트](#테스트)
 - [배포](#배포)
@@ -37,8 +38,8 @@
 ## ✨ 주요 기능
 
 ### 1. 관리자 인증 (Admin Authentication)
-- 이메일/패스워드 기반 로그인
-- Supabase Auth를 통한 안전한 세션 관리
+- ✅ **Mock 모드**: 로그인 불필요 (현재)
+- Supabase Auth를 통한 안전한 세션 관리 (프로덕션)
 - `role='admin'` 역할 기반 접근 제어(RBAC)
 
 ### 2. 상품 관리 (Product Management)
@@ -268,6 +269,106 @@ npm run dev
 ```
 
 브라우저에서 [http://localhost:3000](http://localhost:3000)을 열고 로그인 페이지에서 시작합니다.
+
+---
+
+## 📦 Mock 데이터 (로그인 불필요)
+
+### 🎯 목적
+
+개발 초기 단계에서 **Supabase 계정 없이도** 대시보드를 테스트할 수 있도록 Mock 데이터를 제공합니다.
+
+### ✅ 현재 상태
+
+```
+✅ NEXT_PUBLIC_USE_MOCK=true (기본값)
+✅ 로그인 불필요
+✅ http://localhost:3000/admin 즉시 접속 가능
+```
+
+### 📊 Mock 데이터 규모
+
+| 항목 | 수량 | 설명 |
+|------|------|------|
+| **상품** | 10건 | 5개 카테고리 (전자제품, 의류, 화장품, 생활용품, 식품) |
+| **고객** | 12명 | 김철수, 이영희, 박지성, 최유리, 정민호, 한소희 등 |
+| **주문** | 60건 | 최근 90일에 분산, 다양한 상태 (배송완료, 배송중, 준비중 등) |
+| **재고 부족** | 3개 | stock < 10인 상품 |
+
+### 🔄 Mock ↔ Supabase 전환
+
+#### Mock 데이터 사용 (현재)
+
+```bash
+# .env.local
+NEXT_PUBLIC_USE_MOCK=true
+
+# 개발 시작
+npm run dev
+# → http://localhost:3000/admin (로그인 불필요)
+```
+
+#### Supabase 실제 데이터 사용
+
+```bash
+# .env.local
+NEXT_PUBLIC_USE_MOCK=false
+
+# Supabase 키 설정
+NEXT_PUBLIC_SUPABASE_URL=your_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key
+
+# 개발
+npm run dev
+# → Supabase에서 실제 데이터 로드
+```
+
+### 🏗️ Mock 리포지토리 구조
+
+```
+infrastructure/repositories/
+├── mock-dashboard.repository.ts    # Mock 구현체
+├── SupabaseDashboardRepository.ts  # Supabase 구현체
+└── index.ts                        # Factory (자동 선택)
+```
+
+**특징**: UI 코드 수정 없이 리포지토리만 교체하여 동작합니다! (전략 패턴)
+
+### 📋 Mock 데이터 예시
+
+#### 상품 (10건)
+```
+1. 프리미엄 기계식 키보드     (전자제품, 189,000원, 재고 35)
+2. 클린 아키텍처 머그컵       (생활용품, 18,000원, 재고 120)
+3. 노이즈 캔슬링 무선 헤드폰   (전자제품, 299,000원, 재고 4) ⚠️ 부족
+4. 오버핏 데님 자켓           (의류, 89,000원, 재고 0) ⚠️ 품절
+5. 수분 진정 크림 50ml        (화장품, 32,000원, 재고 58)
+... 총 10건
+```
+
+#### 주문 상태 분포
+```
+배송완료 (Delivered)    - 40%  ← KPI에 카운트
+배송중   (Shipping)     - 20%
+준비중   (Preparing)    - 15%
+결제대기 (Payment Pending) - 15%
+취소     (Cancelled)    - 10%
+```
+
+#### 주간 매출 추이 (AreaChart)
+```
+Sun: 450,000
+Mon: 620,000
+Tue: 580,000
+Wed: 720,000
+Thu: 890,000
+Fri: 1,200,000  ← 최고점
+Sat: 950,000
+```
+
+### 🔧 자세한 사용법
+
+더 자세한 내용은 `infrastructure/repositories/USAGE.md`를 참조하세요.
 
 ---
 
@@ -582,6 +683,7 @@ git push origin main
 
 1. Vercel 프로젝트 설정 → Environment Variables
 2. 다음 환경 변수 추가:
+   - `NEXT_PUBLIC_USE_MOCK=false` (프로덕션에서는 False)
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `SUPABASE_SECRET_KEY`
@@ -638,5 +740,42 @@ MIT License - 자유롭게 사용, 수정, 배포 가능합니다.
 
 ---
 
+---
+
+## 🎯 진행 현황
+
+| 구성 요소 | 상태 | 설명 |
+|---------|------|------|
+| **대시보드 홈** | ✅ 완성 | 4개 KPI, 2개 차트, 주문 테이블 |
+| **Mock 데이터** | ✅ 완성 | 상품 10건, 고객 12명, 주문 60건 |
+| **네비게이션** | ✅ 완성 | 6개 메뉴 (준비 상태) |
+| **클린 아키텍처** | ✅ 준수 | Domain → Application → Infrastructure → Presentation |
+| **테스트 환경** | ✅ 설정 | Vitest 기본 설정 완료 |
+| **Supabase 연동** | ⏳ 대기 | 환경 변수 설정으로 전환 가능 |
+| **나머지 9개 화면** | ⏳ 예정 | 상품/주문/고객/분석 관리 |
+
+---
+
 **최종 업데이트**: 2026-09-03
+
+### 주요 변경사항 (이번 업데이트)
+
+```
+✅ Mock 대시보드 리포지토리 추가
+   - infrastructure/repositories/mock-dashboard.repository.ts
+   - SQL 마이그레이션과 동일한 데이터 규모
+
+✅ 의존성 주입 팩토리 패턴 적용
+   - infrastructure/repositories/index.ts
+   - NEXT_PUBLIC_USE_MOCK으로 자동 전환
+
+✅ 환경 변수 설정
+   - .env.local에 NEXT_PUBLIC_USE_MOCK=true 추가
+   - UI 코드 수정 없이 리포지토리만 교체
+
+✅ README 완성
+   - Mock 데이터 섹션 추가
+   - 전환 가이드 추가
+   - 진행 현황 표시
+```
 
