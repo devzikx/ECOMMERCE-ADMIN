@@ -3,10 +3,14 @@ import { createServerClient } from '@supabase/ssr';
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const authToken = request.cookies.get('admin_token')?.value;
 
   // '/admin' 경로 및 하위 경로 보호
   if (pathname.startsWith('/admin')) {
-    // 기본 인증 체크 (현재는 Mock을 사용하므로 세션이 없음)
+    if (!authToken) {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+
     // 실제 Supabase 연동 시에는 아래와 같이 구현:
     /*
     const supabase = createServerClient(
@@ -42,15 +46,11 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/login', request.url));
     }
     */
-
-    // Mock 사용 중: 로그인 페이지로 리다이렉트하지 않음
-    // 실제 구현 시 위의 주석 처리된 코드를 활성화
   }
 
   // '/login' 페이지에 접근할 때 이미 인증된 사용자는 대시보드로 리다이렉트
-  if (pathname === '/login') {
-    // Mock 사용 중: 리다이렉트하지 않음
-    // 실제 구현 시 세션 확인 후 리다이렉트
+  if (pathname === '/login' && authToken) {
+    return NextResponse.redirect(new URL('/admin', request.url));
   }
 
   return NextResponse.next();

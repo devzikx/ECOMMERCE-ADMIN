@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { BarChart3, Package, ShoppingCart, Users, TrendingUp, Settings } from 'lucide-react';
+import { useRouter, usePathname } from 'next/navigation';
+import { BarChart3, Package, ShoppingCart, Users, TrendingUp, Settings, LogOut } from 'lucide-react';
 
 const navItems = [
   { href: '/admin', label: '대시보드', icon: BarChart3 },
@@ -14,7 +14,15 @@ const navItems = [
 ];
 
 export default function Sidebar() {
+  const router = useRouter();
   const pathname = usePathname();
+
+  const handleLogout = () => {
+    // 쿠키 삭제
+    document.cookie = 'admin_token=; path=/; max-age=0';
+    document.cookie = 'admin_user_id=; path=/; max-age=0';
+    router.push('/login');
+  };
 
   return (
     <aside className="w-64 bg-gradient-to-b from-slate-900 to-slate-800 text-white min-h-screen flex flex-col">
@@ -45,11 +53,18 @@ export default function Sidebar() {
         })}
       </nav>
 
-      <div className="p-4 border-t border-slate-700">
+      <div className="p-4 border-t border-slate-700 space-y-3">
         <div className="bg-slate-700 rounded-lg p-3 text-sm text-slate-300">
           <p className="font-semibold text-white">버전</p>
           <p className="mt-1">v0.1.0</p>
         </div>
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-red-600 hover:text-white transition-colors bg-slate-700"
+        >
+          <LogOut size={20} />
+          <span>로그아웃</span>
+        </button>
       </div>
     </aside>
   );

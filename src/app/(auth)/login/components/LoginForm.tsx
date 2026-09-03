@@ -25,10 +25,14 @@ export default function LoginForm() {
       try {
         const repository = new MockAuthRepository();
         const useCase = new LoginUseCase(repository);
-        await useCase.execute({
+        const result = await useCase.execute({
           email: values.email,
           password: values.password,
         });
+
+        // 로그인 토큰을 쿠키에 저장
+        document.cookie = `admin_token=${result.token}; path=/; max-age=${7 * 24 * 60 * 60}`;
+        document.cookie = `admin_user_id=${result.user.id}; path=/; max-age=${7 * 24 * 60 * 60}`;
 
         router.push('/admin');
       } catch (err) {
