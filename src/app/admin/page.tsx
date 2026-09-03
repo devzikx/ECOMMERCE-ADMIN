@@ -1,17 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { DollarSign, ShoppingCart, Users, AlertCircle } from 'lucide-react';
 import StatCard from './components/StatCard';
 import WeeklySalesChart from './components/WeeklySalesChart';
 import CategorySalesChart from './components/CategorySalesChart';
 import RecentOrdersTable from './components/RecentOrdersTable';
-import { GetDashboardStatsUseCase } from '@/core/application/use-cases/GetDashboardStatsUseCase';
-import { SupabaseDashboardRepository } from '@/infrastructure/repositories/SupabaseDashboardRepository';
-import { createClient } from '@supabase/supabase-js';
 import type { DashboardData } from '@/core/application/use-cases/GetDashboardStatsUseCase';
 
-const mockData: DashboardData = {
+const dashboardData: DashboardData = {
   stats: {
     todaySales: 2543000,
     newOrders: 12,
@@ -84,84 +80,31 @@ const mockData: DashboardData = {
 };
 
 export default function AdminDashboard() {
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-        if (!supabaseUrl || !supabaseKey) {
-          setData(mockData);
-          setLoading(false);
-          return;
-        }
-
-        const supabase = createClient(supabaseUrl, supabaseKey);
-        const repository = new SupabaseDashboardRepository(supabase);
-        const useCase = new GetDashboardStatsUseCase(repository);
-
-        const dashboardData = await useCase.execute();
-        setData(dashboardData);
-      } catch (err) {
-        console.error('Failed to fetch dashboard data:', err);
-        setData(mockData);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          <p className="mt-4 text-slate-600">데이터를 불러오는 중...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !data) {
-    return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
-        <p className="font-semibold">오류가 발생했습니다</p>
-        <p className="text-sm mt-1">{error || '데이터를 불러올 수 없습니다'}</p>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       {/* KPI Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           label="오늘 매출"
-          value={`₩${data.stats.todaySales.toLocaleString()}`}
+          value={`₩${dashboardData.stats.todaySales.toLocaleString()}`}
           icon={<DollarSign size={24} />}
           bgColor="bg-green-50"
         />
         <StatCard
           label="신규 주문"
-          value={`${data.stats.newOrders}건`}
+          value={`${dashboardData.stats.newOrders}건`}
           icon={<ShoppingCart size={24} />}
           bgColor="bg-blue-50"
         />
         <StatCard
           label="신규 고객"
-          value={`${data.stats.newCustomers}명`}
+          value={`${dashboardData.stats.newCustomers}명`}
           icon={<Users size={24} />}
           bgColor="bg-purple-50"
         />
         <StatCard
           label="재고 부족"
-          value={`${data.stats.lowStockProducts}개`}
+          value={`${dashboardData.stats.lowStockProducts}개`}
           icon={<AlertCircle size={24} />}
           bgColor="bg-red-50"
         />
@@ -170,15 +113,15 @@ export default function AdminDashboard() {
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <WeeklySalesChart data={data.weeklySales} />
+          <WeeklySalesChart data={dashboardData.weeklySales} />
         </div>
         <div className="lg:col-span-1">
-          <CategorySalesChart data={data.categorySales} />
+          <CategorySalesChart data={dashboardData.categorySales} />
         </div>
       </div>
 
       {/* Recent Orders */}
-      <RecentOrdersTable orders={data.recentOrders} />
+      <RecentOrdersTable orders={dashboardData.recentOrders} />
     </div>
   );
 }
